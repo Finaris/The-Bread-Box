@@ -1,6 +1,7 @@
 import json
 import requests
 from bs4 import BeautifulSoup
+from multiprocessing.dummy import Pool as ThreadPool
 
 
 class BreadBoxNameGenerator:
@@ -18,16 +19,21 @@ class BreadBoxNameGenerator:
         self._deletion_cost = deletion_cost
         self._substitution_cost = substitution_cost
 
-    def _weighted_levenshtein_distance(self, a, b, i=None, j=None):
-        """ Calculates a weighted Levenshtein distance between two strings A and B. All weights are multiplied to 1 for
+    def _weighted_levenshtein_distance(self, a, b, i=None, j=None, memo={}):
+        """Calculates a weighted Levenshtein distance between two strings A and B. All weights are multiplied to 1 for
             determining an overall cost.
 
         :param a: (str) source word
         :param b: (str) destination word
         :param i: (int) first i characters of a
         :param j: (int) first j characters of b
+        :param memo: (dict) A memo containing a mapping for the levenshtein distance between two words.
         :return: (tuple) the number of operations and the score of these operations
         """
+        if (a, b, i, j) in memo:
+            return memo[a, b, i, j]
+
+        # Initialize i and j to the lengths of their respective words.
         if i is None:
             i = len(a)
         if j is None:
@@ -40,12 +46,33 @@ class BreadBoxNameGenerator:
             return i
 
         # Check if the last characters of the strings match.
-        cost = 0 if a[-1] == b[-1] else 1
+        sub_cost = 0 if a[i-1] == b[j-1] else 1
 
         # Return the minimum of deleting from s, deleting from t (insertion for s), and delete from both (substitution).
-        return min(self._weighted_levenshtein_distance(a, b, i-1, j) + self._insertion_cost * 1,
-                   self._weighted_levenshtein_distance(a, b, i, j-1) + self._deletion_cost * 1,
-                   self._weighted_levenshtein_distance(a, b, i-1, j-1) + self._substitution_cost * cost)
+        memo[a, b, i, j] = min(self._weighted_levenshtein_distance(a, b, i-1, j) + self._insertion_cost * 1,
+                               self._weighted_levenshtein_distance(a, b, i, j-1) + self._deletion_cost * 1,
+                               self._weighted_levenshtein_distance(a, b, i-1, j-1) + self._substitution_cost * sub_cost)
+        return memo[a, b, i, j]
+
+    def best_breads_for_name(self, name, use_all_breads=False, threading=None):
+        """ Provides a sorted list of matching bread names given an individual's name.
+
+        :param name: (str) an individual's name
+        :param use_all_breads: (bool) determines whether or not we scrape wikipedia for breads
+        :param threading: (int) number of threads to use if multithreading is desired (must be greater than 0)
+        :return: (list) sorted list of bread names based off of weighted levenshtein distance to name
+        """
+        every_bread = self._all_breads() | self._bread_terms() if use_all_breads else self._bread_terms()
+
+        if threading:
+            pool = ThreadPool(threading)
+            bread_weights = pool.map(lambda bread: (bread,
+                                                    self._weighted_levenshtein_distance(name.lower(), bread.lower())),
+                                     every_bread)
+            return list(map(lambda bread_weight: bread_weight[0],
+                            sorted(bread_weights, key=lambda bread_weight: bread_weight[1])))
+        return sorted(every_bread,
+                      key=lambda bread: self._weighted_levenshtein_distance(name.lower(), bread.lower()))
 
     @staticmethod
     def _json_to_python_list(filename):
@@ -58,10 +85,19 @@ class BreadBoxNameGenerator:
             return json.load(file)
 
     @staticmethod
+    def _bread_terms():
+        """ Loads an additional JSON of bread-related terms for name generation.
+
+        :return: (set) set of fun bread-related terms
+        """
+        bread_terms_path = 'additional_bread_terms.json'
+        return set(BreadBoxNameGenerator._json_to_python_list(bread_terms_path))
+
+    @staticmethod
     def _all_breads():
         """ Queries Wikipedia for a list of all bread names (https://en.wikipedia.org/wiki/List_of_breads).
 
-        :return: (list) all bread names
+        :return: (set) all bread names
         """
         session = requests.session()
 
@@ -94,7 +130,7 @@ class BreadBoxNameGenerator:
             TODO: Capitalization check does not work completely for non-Latin alphabet capitals.
 
         :param bread_name: (str) Raw name of a bread parsed from Wikipedia
-        :return: (list) list containing the normalized bread name along with any others in the same field
+        :return: (set) set containing the normalized bread name along with any others in the same field
         """
         # Defines a list of exceptions during normalization when considering capital words, as well as characters
         # to remove.
@@ -128,12 +164,21 @@ class BreadBoxNameGenerator:
 
         return components
 
-# Custom weights used in our name generator.
+# Custom weights used in our name generator. Give less cost to insertions.
 INSERTION_COST = 1
-DELETION_COST = 1
-SUBSTITUTION_COST = 1
+DELETION_COST = 2
+SUBSTITUTION_COST = 2
 
 if __name__ == "__main__":
     generator = BreadBoxNameGenerator(insertion_cost=INSERTION_COST,
                                       deletion_cost=DELETION_COST,
                                       substitution_cost=SUBSTITUTION_COST)
+
+    name = ""
+    first_last = name.split()
+    thread_count = 16
+
+    # Check first, last, and first+last name combinations.
+    print(generator.best_breads_for_name(first_last[0], threading=thread_count))
+    print(generator.best_breads_for_name(first_last[1], threading=thread_count))
+    print(generator.best_breads_for_name(name, threading=thread_count))
