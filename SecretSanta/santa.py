@@ -78,7 +78,7 @@ def main():
 
     # start smtp server
     user = 'g1ng3rbr34db0x@gmail.com'
-    password = 'daddycl@uz'  # fill in before running code
+    password = ''  # fill in before running code
     server = get_server_instance(user, password)
 
     # send out personalized emails
