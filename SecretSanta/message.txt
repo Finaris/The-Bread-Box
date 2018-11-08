@@ -1,0 +1,13 @@
+<html>
+    <head></head>
+    <body>
+        <p>
+            Hey {0:}, <br><br>
+            Happy (upcoming) holiday season! This is Santa, with your Secret Santa assignment! You have been assigned to <b>{1:}</b>, so you will need to make, find, buy, or steal them a gift in time for our Secret Santa party, which we are tentatively scheduling for the night of December 14th, but we will probably vote on later. Please try to limit your gift to a $10 - $20 price range, whether that is for the gift itself or materials used to make the gift. This is so that nobody feels pressured to spend too much, as this is supposed to be fun!<br><br>
+            Here is a <a href="">link</a> to a Google Doc where you can enter your present preferences and find some ideas for what you can get for your assignee. Please update your entry as soon as possible, to give everyone plenty of time to plan!<br><br>
+            We will be planning the details of the Secret Santa Party later this month, but feel free to start thinking of snacks, games, and other activities that you may want at the party. If you have any ideas you're excited about, or if there is something wrong with this automated message, please let Collin know.<br><br>
+            Happy Holidays,<br>
+            Santa Claus
+        </p>
+    </body>
+</html>
