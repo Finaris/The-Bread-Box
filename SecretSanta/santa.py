@@ -1,21 +1,8 @@
 import csv
 import random
 import smtplib
-
-
-MAIN_MESSAGE = "Hey {0:}, \r\n" + \
-               "Happy (upcoming) holiday season! This is Santa, with your Secret Santa assignment! " + \
-               "You have been assigned {1:}, so you will need to make, find, buy, or steal them a" + \
-               " gift in time for our Secret Santa party, which we are tentatively scheduling for" + \
-               " the night of December 14th, but we will probably vote on later. Please try to " + \
-               "limit your gift to a $10 - $20 price range, whether that is for the gift itself " + \
-               "or materials used to make the gift. This is so that nobody feels pressured to " + \
-               "spend too much, as this is supposed to be fun!\r\n\n" + \
-               "We will be planning the details of the Secret Santa Party later this month, but" + \
-               " feel free to start thinking of snacks, games, and other activities that you " + \
-               "may want at the party. If you have any ideas you're excited about, or if there is " + \
-               "something wrong with this automated message, please let Collin know.\r\n\n" + \
-               "Happy Holidays,\r\nSanta Claus"
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 
 def get_member_info(filename):
@@ -42,8 +29,12 @@ def get_server_instance(user, password):
 
 def send_email(server, user, recipient, subject, message):
     # send email's message with a formatted header
-    message_header = 'From: %s\r\nTo: %s\r\nSubject: %s\r\n' % (user, recipient, subject)
-    server.sendmail(user, recipient, message_header + message)
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = subject
+    msg['From'] = user
+    msg['To'] = recipient
+    msg.attach(message)
+    server.sendmail(user, recipient, msg.as_string())
 
 
 def assign_members(members):
@@ -70,6 +61,8 @@ def assign_members(members):
 
 def main():
     # load members and their assignments
+    message_text = open('message.txt').read()
+
     members = list(get_member_info('fake_members.csv'))
     assignment = assign_members(members)
 
@@ -83,12 +76,14 @@ def main():
 
     # send out personalized emails
     for member in members:
-        message = MAIN_MESSAGE.format(member[0], assignment[member[0]])
+        message = MIMEText(message_text.format(member[0], assignment[member[0]]), 'html')
         send_email(server,
                    user,
                    member[1] + '@mit.edu',
                    'Secret Santa Assignment',
                    message)
+
+    server.quit()
 
 
 if __name__ == '__main__':
